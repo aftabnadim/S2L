@@ -3,7 +3,7 @@ import os
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QFormLayout, QPushButton, QFileDialog, QCheckBox, QLabel, QLineEdit, QTextEdit, QProgressBar
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QTextCursor
-import labels2roisTEST as l2r
+import labels2rois as l2r
 import cellpose as cellpose
 from mastersheet import genmasterSheet
 
