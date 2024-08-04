@@ -2,7 +2,7 @@ import sys
 import os
 import argparse
 from PIL import Image
-import labels2roisTEST as l2r
+import labels2rois as l2r
 from Cellpose3_Basset import Cellpose
 from mastersheet import genmasterSheet
 from concurrent.futures import ThreadPoolExecutor, as_completed
