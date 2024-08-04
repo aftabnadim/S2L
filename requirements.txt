@@ -1,0 +1,7 @@
+matplotlib
+pandas
+cupy-cuda12x
+openpyxl
+tqdm
+pillow
+opencv-python
