@@ -1,0 +1,8 @@
+matplotlib
+cupy-cuda12x
+openpyxl
+tqdm
+pillow
+opencv-python
+XlsxWriter
+cellpose[gui]
