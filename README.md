@@ -17,6 +17,9 @@ A GUI interface that can segment images with additional info.
 - Optimizations (REALLY IMPORTANT)
 - Linux and Mac support 
 
+## Credits
+
+ - [Cellpose](https://github.com/MouseLand/cellpose)
 
 ## Building into a  single executable
 
