@@ -41,7 +41,7 @@ git clone https://github.com/aftabnadim/S2L.git && cd S2L && pip3 install -r req
 ```
 Install Pytorch.
 ```
-pip install Pytorch
+pip install torch
 ```
 or Install Pytorch CUDA
 ```
