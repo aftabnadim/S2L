@@ -33,7 +33,7 @@ Download and execute the executable from the releases tab
 ### Manual Method
 
 #### Prerequisites
-- A working Cuda 12.4 install (You don't really need this but it is recommended)
+- A working Cuda Toolkit 12.4 install (You don't really need this but it is recommended)
 
 Clone this repo and install requirements. I recommend to do this in an env
 ```
