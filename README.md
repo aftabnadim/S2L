@@ -13,7 +13,7 @@ A GUI interface that can segment images with excel sheet generation.
 - More features
 
 - Optimizations (REALLY IMPORTANT)
-- Linux and Mac support 
+
 
 ## Credits
 
