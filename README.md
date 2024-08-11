@@ -26,8 +26,31 @@ See [this](https://github.com/python312/s2l-loader)
     
 ## Installation
 
-Download the precompiled executable ( Windows ONLY ) or just run **main.py**
+For installation there are 2 options
 
+### Exe Method
+Download and execute the executable from the releases tab
+### Manual Method
+
+#### Prerequisites
+- A working Cuda 12.4 install (You don't really need this but it is recommended)
+
+Clone this repo and install requirements. I recommend to do this in an env
+```
+git clone https://github.com/aftabnadim/S2L.git && cd S2L && pip3 install -r requirements.txt
+```
+Install Pytorch.
+```
+pip install Pytorch
+```
+or Install Pytorch CUDA
+```
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+```
+Start GUI
+```
+python main.py
+```
 ## Dataset Example
 
 A dataset example is found in the ExampleDataset folder, use that for guidelines. (Files can be named anything)
