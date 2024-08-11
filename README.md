@@ -4,6 +4,7 @@
 A GUI interface that can segment images with additional info.
 
 
+
 ## Acknowledgements
 
  - [CHATGPT: Assisted in those boring and long tasks.](https://chatgpt.com)
@@ -40,3 +41,6 @@ pyinstaller --onefile loader.py
 
 Either build or download the precompiled executable ( Windows ONLY )
 
+## Dataset Example
+
+A dataset example is found in the ExampleDataset folder, use that for guidelines. (Files can be named anything)
