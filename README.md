@@ -26,14 +26,17 @@ See [this](https://github.com/python312/s2l-loader)
     
 ## Installation
 
+### Prerequisites
+- A working Cuda Toolkit 12.4 install (You don't really need this but it is recommended)
+
+
 For installation there are 2 options
 
 ### Exe Method
 Download and execute the executable from the releases tab
 ### Manual Method
 
-#### Prerequisites
-- A working Cuda Toolkit 12.4 install (You don't really need this but it is recommended)
+
 
 Clone this repo and install requirements. I recommend to do this in an env
 ```
