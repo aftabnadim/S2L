@@ -131,7 +131,7 @@ class WorkerThread(QThread):
 class ImageSegmentationApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Image Segmentation Pipeline")
+        self.setWindowTitle("S2L")
         self.base_dir = ''
         self.output_dir = ''
         self.diameter = 0
