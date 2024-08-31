@@ -6,12 +6,15 @@ import os
 from cellpose import io, models, transforms
 import tqdm
 
+from PIL import Image as PILImage
+import numpy as np
+
 class StopFlag:
     def __init__(self):
         self.stop = False
         self.model = models.Cellpose(gpu=torch.cuda.is_available(), model_type='cyto')  # Initialize Cellpose model
 
-    def segment(self, directory, diameter, progress_callback=None):
+    def segment(self, directory, diameter, sharpen_radius, smooth_radius, tile_norm_blocksize, tile_norm_smooth3D, norm3D, invert, progress_callback=None):
         start_time = time.time()
 
         files = [filename.path for filename in os.scandir(directory) if filename.is_file()]
@@ -23,17 +26,23 @@ class StopFlag:
             print("No files to process.")
             return
 
-        stop_flag = StopFlag()
         channels = [[0, 0]]
 
         for idx, filename in enumerate(tqdm.tqdm(files)):
-            if stop_flag.stop:
+            if self.stop:
                 break
             for chan in channels:
-                img = io.imread(filename)
-                img_smoothed = transforms.smooth_sharpen_img(img, smooth_radius=1, sharpen_radius=0)
-                masks, flows, styles, diams = self.model.eval(img_smoothed, diameter=diameter, channels=chan, flow_threshold=0.3, cellprob_threshold=0)
-                img_normalized = transforms.normalize99(img, lower=1, upper=99)
+                # Load image with PIL
+                img = PILImage.open(filename).convert('RGB')  # Convert image to RGB
+                img = np.array(img)  # Convert PIL image to numpy array
+                
+                img_smoothed = transforms.smooth_sharpen_img(img, smooth_radius=smooth_radius, sharpen_radius=sharpen_radius)
+                img_normalized = transforms.normalize_img(
+                    img_smoothed, normalize=True, tile_norm_blocksize=tile_norm_blocksize,
+                    tile_norm_smooth3D=tile_norm_smooth3D, norm3D=norm3D, invert=invert
+                )
+
+                masks, flows, styles, diams = self.model.eval(img_normalized, diameter=diameter, channels=chan, flow_threshold=0.3, cellprob_threshold=0)
 
                 def save_masks_with_timeout(img, masks, flows, filename):
                     stop_flag_local = StopFlag()
