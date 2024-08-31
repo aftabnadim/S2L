@@ -1,6 +1,5 @@
 import sys
 import os
-import cupy
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QLabel, QLineEdit, QPushButton, 
     QCheckBox, QSpinBox, QProgressBar, QVBoxLayout, QWidget, QHBoxLayout, QMessageBox
@@ -23,32 +22,66 @@ def get_image_format(file_path):
         print(f"Error determining image format: {e}")
         return ''
 
-def check_cuda_availability():
-    """Check if CUDA Toolkit is available using cupy."""
-    try:
-        return cupy.is_available()
-    except Exception as e:
-        print(f"Error checking CUDA availability: {e}")
-        return False
-
 class WorkerThread(QThread):
     cellpose_progress = pyqtSignal(float)
     labels2rois_progress = pyqtSignal(float)
     finished = pyqtSignal()
 
-    def __init__(self, base_dir, output_dir, diameter, run_segmentation, run_labels2rois):
+    def __init__(self, base_dir, output_dir, diameter, run_segmentation, run_labels2rois,
+                 sharpen_radius, smooth_radius, tile_norm_blocksize, tile_norm_smooth3D, norm3D, invert):
         super().__init__()
         self.base_dir = base_dir
         self.output_dir = output_dir
         self.diameter = diameter
         self.run_segmentation = run_segmentation
         self.run_labels2rois = run_labels2rois
+        self.sharpen_radius = sharpen_radius
+        self.smooth_radius = smooth_radius
+        self.tile_norm_blocksize = tile_norm_blocksize
+        self.tile_norm_smooth3D = tile_norm_smooth3D
+        self.norm3D = norm3D
+        self.invert = invert
         self.cellpose = Cellpose()  # Initialize Cellpose class
+
+    def get_original_image_path(self, mask_path):
+        """Generate the path for the original image based on the mask path."""
+        # Extract the base name of the mask file
+        mask_base_name = self.get_file_base_name(mask_path)
+        
+        # Generate possible patterns to match
+        pattern = re.sub(r'_cp_masks$', '', mask_base_name)  # Remove '_cp_masks' to find the pattern
+        
+        original_image_path = None
+        for root, dirs, files in os.walk(self.base_dir):
+            for file in files:
+                if pattern in file:
+                    possible_path = os.path.join(root, file)
+                    # Check if it's a supported image format
+                    if possible_path.lower().endswith(('.tif', '.tiff', '.png', '.jpg', '.jpeg')):
+                        original_image_path = possible_path
+                        break
+            if original_image_path:
+                break
+
+        if not original_image_path:
+            print(f"Warning: Original image not found for mask file: {mask_path}")
+
+        return original_image_path
+
+    def get_file_base_name(self, file_path):
+        """Get the base name of the file without extension."""
+        return os.path.splitext(os.path.basename(file_path))[0]
 
     def run(self):
         if self.run_segmentation:
             print(f"Running segmentation in directory: {self.base_dir}")
-            self.cellpose.segment(self.base_dir, diameter=int(self.diameter), progress_callback=self.update_cellpose_progress)
+            self.cellpose.segment(
+                self.base_dir, diameter=int(self.diameter),
+                smooth_radius=self.smooth_radius, sharpen_radius=self.sharpen_radius,
+                tile_norm_blocksize=self.tile_norm_blocksize, tile_norm_smooth3D=self.tile_norm_smooth3D,
+                norm3D=self.norm3D, invert=self.invert,
+                progress_callback=self.update_cellpose_progress
+            )
         
         if self.run_labels2rois:
             masks = [os.path.join(self.base_dir, f) for f in os.listdir(self.base_dir) if "cp_masks" in f]
@@ -93,35 +126,6 @@ class WorkerThread(QThread):
 
         self.finished.emit()
 
-    def get_original_image_path(self, mask_path):
-        """Generate the path for the original image based on the mask path."""
-        # Extract the base name of the mask file
-        mask_base_name = self.get_file_base_name(mask_path)
-        
-        # Generate possible patterns to match
-        pattern = re.sub(r'_cp_masks$', '', mask_base_name)  # Remove '_cp_masks' to find the pattern
-        
-        original_image_path = None
-        for root, dirs, files in os.walk(self.base_dir):
-            for file in files:
-                if pattern in file:
-                    possible_path = os.path.join(root, file)
-                    # Check if it's a supported image format
-                    if possible_path.lower().endswith(('.tif', '.tiff', '.png', '.jpg', '.jpeg')):
-                        original_image_path = possible_path
-                        break
-            if original_image_path:
-                break
-
-        if not original_image_path:
-            print(f"Warning: Original image not found for mask file: {mask_path}")
-
-        return original_image_path
-
-    def get_file_base_name(self, file_path):
-        """Get the base name of the file without extension."""
-        return os.path.splitext(os.path.basename(file_path))[0]
-
     def update_cellpose_progress(self, progress):
         self.cellpose_progress.emit(progress)
 
@@ -135,9 +139,12 @@ class ImageSegmentationApp(QMainWindow):
         self.base_dir = ''
         self.output_dir = ''
         self.diameter = 0
-        self.image_list = []
-        self.image_index = 0
-        self.cuda_available = check_cuda_availability()
+        self.sharpen_radius = 0
+        self.smooth_radius = 1
+        self.tile_norm_blocksize = 256
+        self.tile_norm_smooth3D = False
+        self.norm3D = False
+        self.invert = False
         self.init_ui()
 
     def init_ui(self):
@@ -168,6 +175,34 @@ class ImageSegmentationApp(QMainWindow):
         layout.addWidget(self.segmentation_checkbox)
         layout.addWidget(self.labels2rois_checkbox)
         
+        # Add new UI components
+        self.sharpen_radius_spinbox = QSpinBox()
+        self.sharpen_radius_spinbox.setRange(0, 100)
+        self.sharpen_radius_spinbox.setValue(0)
+        layout.addWidget(QLabel("Sharpen Radius:"))
+        layout.addWidget(self.sharpen_radius_spinbox)
+        
+        self.smooth_radius_spinbox = QSpinBox()
+        self.smooth_radius_spinbox.setRange(0, 100)
+        self.smooth_radius_spinbox.setValue(1)
+        layout.addWidget(QLabel("Smooth Radius:"))
+        layout.addWidget(self.smooth_radius_spinbox)
+        
+        self.tile_norm_blocksize_spinbox = QSpinBox()
+        self.tile_norm_blocksize_spinbox.setRange(0, 1000)
+        self.tile_norm_blocksize_spinbox.setValue(256)
+        layout.addWidget(QLabel("Tile Norm Blocksize:"))
+        layout.addWidget(self.tile_norm_blocksize_spinbox)
+        
+        self.tile_norm_smooth3D_checkbox = QCheckBox("Tile Norm Smooth 3D")
+        layout.addWidget(self.tile_norm_smooth3D_checkbox)
+        
+        self.norm3D_checkbox = QCheckBox("Normalize 3D")
+        layout.addWidget(self.norm3D_checkbox)
+        
+        self.invert_checkbox = QCheckBox("Invert")
+        layout.addWidget(self.invert_checkbox)
+        
         self.diameter_spinbox = QSpinBox()
         self.diameter_spinbox.setRange(0, 100)
         self.diameter_spinbox.setValue(0)
@@ -187,22 +222,9 @@ class ImageSegmentationApp(QMainWindow):
         layout.addWidget(QLabel("Labels2ROIs Progress:"))
         layout.addWidget(self.labels2rois_progress_bar)
         
-        # CUDA Status Label
-        self.cuda_status_label = QLabel("CUDA is detected." if self.cuda_available else "CUDA is not detected.")
-        layout.addWidget(self.cuda_status_label)
-        
         central_widget = QWidget()
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
-
-        if not self.cuda_available:
-            QMessageBox.warning(
-                self, "CUDA Toolkit Not Found",
-                "CUDA Toolkit is not detected on your system. The process will run slower without CUDA support.\n\n"
-                "Do you want to continue without CUDA?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
 
     def select_base_dir(self):
         self.base_dir = QFileDialog.getExistingDirectory(self, "Select Base Directory")
@@ -219,11 +241,17 @@ class ImageSegmentationApp(QMainWindow):
         if not self.base_dir or not self.output_dir:
             QMessageBox.warning(self, "Input Error", "Please select both base and output directories.")
             return
-        
+
         self.worker_thread = WorkerThread(
             self.base_dir, self.output_dir, self.diameter,
             self.segmentation_checkbox.isChecked(),
-            self.labels2rois_checkbox.isChecked()
+            self.labels2rois_checkbox.isChecked(),
+            sharpen_radius=self.sharpen_radius_spinbox.value(),
+            smooth_radius=self.smooth_radius_spinbox.value(),
+            tile_norm_blocksize=self.tile_norm_blocksize_spinbox.value(),
+            tile_norm_smooth3D=self.tile_norm_smooth3D_checkbox.isChecked(),
+            norm3D=self.norm3D_checkbox.isChecked(),
+            invert=self.invert_checkbox.isChecked()
         )
         self.worker_thread.cellpose_progress.connect(self.update_cellpose_progress)
         self.worker_thread.labels2rois_progress.connect(self.update_labels2rois_progress)
@@ -231,13 +259,15 @@ class ImageSegmentationApp(QMainWindow):
         self.worker_thread.start()
 
     def update_cellpose_progress(self, progress):
-        self.cellpose_progress_bar.setValue(progress)
+        self.cellpose_progress_bar.setValue(int(progress))
 
     def update_labels2rois_progress(self, progress):
-        self.labels2rois_progress_bar.setValue(progress)
+        self.labels2rois_progress_bar.setValue(int(progress))
 
     def process_finished(self):
         QMessageBox.information(self, "Process Complete", "The image processing is complete.")
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
