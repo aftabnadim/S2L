@@ -3,19 +3,6 @@ import numpy as np
 import xlsxwriter
 import matplotlib.pyplot as plt
 
-try:
-    import cupy as cp
-
-    def check_cuda():
-        try:
-            devices = cp.cuda.runtime.getDeviceCount()
-            return devices > 0
-        except cp.cuda.runtime.CUDARuntimeError:
-            return False
-
-    CUPY_AVAILABLE = check_cuda()
-except ImportError:
-    CUPY_AVAILABLE = False
 
 class ROIVisualizer:
     def __init__(self, label_image_path, original_image_path, excel_output_path, plot_output_path, show_labels=False, progress_callback=None):
@@ -43,58 +30,29 @@ class ROIVisualizer:
         if label_image is None or original_image is None:
             raise ValueError("One or both images could not be loaded. Check the file paths.")
 
-        if CUPY_AVAILABLE:
-            label_image_cp = cp.asarray(label_image)
-            original_image_cp = cp.asarray(original_image)
+        unique_labels = np.unique(label_image)
+        unique_labels = unique_labels[unique_labels > 0]  # Exclude background
 
-            unique_labels = cp.unique(label_image_cp)
-            unique_labels = unique_labels[unique_labels > 0]  # Exclude background
+        colors = np.random.randint(0, 256, (len(unique_labels), 3), dtype=np.uint8)
 
-            colors = cp.random.randint(0, 256, (len(unique_labels), 3), dtype=cp.uint8)
+        overlay_image_np = np.zeros_like(original_image)
+        label_overlay_np = np.zeros_like(original_image)
 
-            overlay_image_cp = cp.zeros_like(original_image_cp)
-            label_overlay_cp = cp.zeros_like(original_image_cp)
+        for idx, label in enumerate(unique_labels):
+            mask = (label_image == label)
+            overlay_image_np[mask] = colors[idx]
+            label_overlay_np[mask] = colors[idx]
 
-            for idx, label in enumerate(unique_labels.get()):
-                mask = (label_image_cp == label)
-                overlay_image_cp[mask] = colors[idx]
-                label_overlay_cp[mask] = colors[idx]
+        # Add text labels in a single pass
+        for idx, label in enumerate(unique_labels):
+            mask = (label_image == label)
+            coords = np.nonzero(mask)
+            if coords[0].size > 0:
+                center_y, center_x = int(np.mean(coords[0])), int(np.mean(coords[1]))
+                cv2.putText(label_overlay_np, str(label), (center_x, center_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
-            # Convert label_overlay_cp to NumPy once after all operations
-            label_overlay_np = cp.asnumpy(label_overlay_cp)
-            for idx, label in enumerate(unique_labels.get()):
-                mask = (label_image_cp == label).get()
-                coords = np.nonzero(mask)
-                if coords[0].size > 0:
-                    center_y, center_x = int(np.mean(coords[0])), int(np.mean(coords[1]))
-                    cv2.putText(label_overlay_np, str(label), (center_x, center_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-
-            self.roi_image = cp.asnumpy(overlay_image_cp)
-            self.label_roi_image = label_overlay_np
-        else:
-            unique_labels = np.unique(label_image)
-            unique_labels = unique_labels[unique_labels > 0]
-
-            colors = np.random.randint(0, 256, (len(unique_labels), 3), dtype=np.uint8)
-
-            overlay_image_np = np.zeros_like(original_image)
-            label_overlay_np = np.zeros_like(original_image)
-
-            for idx, label in enumerate(unique_labels):
-                mask = (label_image == label)
-                overlay_image_np[mask] = colors[idx]
-                label_overlay_np[mask] = colors[idx]
-
-            # Add text labels in a single pass
-            for idx, label in enumerate(unique_labels):
-                mask = (label_image == label)
-                coords = np.nonzero(mask)
-                if coords[0].size > 0:
-                    center_y, center_x = int(np.mean(coords[0])), int(np.mean(coords[1]))
-                    cv2.putText(label_overlay_np, str(label), (center_x, center_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-
-            self.roi_image = overlay_image_np
-            self.label_roi_image = label_overlay_np
+        self.roi_image = overlay_image_np
+        self.label_roi_image = label_overlay_np
 
         alpha = 0.2
         self.combined_image = cv2.addWeighted(original_image, alpha, self.label_roi_image, 1 - alpha, 0)
